@@ -27,17 +27,18 @@ public class SecurityConfiguration{
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity.csrf().disable()
                 .authorizeHttpRequests( request -> request
-                        //.requestMatchers("/v3/api-docs").permitAll()
+                        .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers( HttpMethod.GET, "/produtos/admin").authenticated()
                         .anyRequest().permitAll()
                 )
-                .cors().configurationSource( request -> {
-                    CorsConfiguration configuration = new CorsConfiguration();
-                    configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:8080"));
-                    configuration.setAllowedMethods(List.of("*"));
-                    configuration.setAllowedHeaders(List.of("*"));
-                    return configuration;
-                }).and()
+//                .cors().configurationSource( request -> {
+//                    CorsConfiguration configuration = new CorsConfiguration();
+//                    configuration.setAllowedOrigins(List.of("*"));
+//                    configuration.setAllowedMethods(List.of("*"));
+//                    configuration.setAllowedHeaders(List.of("*"));
+//                    return configuration;
+//                })
+//                .and()
                 .oauth2ResourceServer( oauth2 -> oauth2
                         .jwt( jwt -> jwt.jwtAuthenticationConverter( grantedAuthoritiesExtractor() ) ) );
         return httpSecurity.build();

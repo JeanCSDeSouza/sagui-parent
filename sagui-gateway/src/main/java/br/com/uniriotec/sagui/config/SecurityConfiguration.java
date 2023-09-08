@@ -12,6 +12,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
@@ -38,11 +39,20 @@ public class SecurityConfiguration {
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity serverHttpSecurity){
         serverHttpSecurity//.anonymous().and()
                 .csrf().disable()
-                .authorizeExchange( exchange -> exchange.pathMatchers(  "/eureka/**","/eureka/web" ).permitAll()
+                .authorizeExchange( exchange ->
+                        exchange.pathMatchers(
+                                "/eureka/**","/eureka/web","/webjars/swagger-ui/**" )
+                        .permitAll()
                         .anyExchange()
-                                .permitAll()
-                        //.authenticated()
+                        .authenticated()
                 )
+                .cors().configurationSource( request -> {
+                    CorsConfiguration configuration = new CorsConfiguration();
+                    configuration.setAllowedOrigins(List.of("*"));
+                    configuration.setAllowedMethods(List.of("*"));
+                    configuration.setAllowedHeaders(List.of("*"));
+                    return configuration;
+                }).and()
                 .oauth2ResourceServer( oauth2 -> oauth2
                         .jwt( jwt -> jwt.jwtAuthenticationConverter( grantedAuthoritiesExtractor() ))
                 );

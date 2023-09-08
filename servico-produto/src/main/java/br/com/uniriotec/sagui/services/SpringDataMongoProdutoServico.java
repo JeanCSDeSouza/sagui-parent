@@ -4,7 +4,10 @@ import java.util.Locale;
 import java.util.Optional;
 
 import br.com.uniriotec.sagui.model.dto.ProdutoData;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
@@ -20,6 +23,7 @@ import br.com.uniriotec.sagui.model.dto.ProdutoRepresentationAssembler;
 import br.com.uniriotec.sagui.repository.ProdutoRepositorio;
 
 @Service
+@Slf4j
 public class SpringDataMongoProdutoServico implements ProdutoServico {
 
 	private ProdutoRepositorio produtoRepositorio;
@@ -32,71 +36,110 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 		this.messageSource = messageSource;
 	}
 
+	/**
+	 * Busca um produto pelo seu ID
+	 * @param id Identificador de produto
+	 * @return produto relacionado ao ID buscado
+	 * @exception ProdutoNaoEncontradoException caso o produto não seja encontrado
+	 */
+	@Cacheable(value="produtoCache", key="#id")
 	@Override
 	public ProdutoData buscarPorId(String id) {
+		log.info("Método foi chamado - get by id");
 		Optional<Produto> produto = produtoRepositorio.findById(id);
 		if( produto.isPresent() ) {
 			return produtoAssembler.toModel( produto.get() );
 		}else {
 			throw new ProdutoNaoEncontradoException( messageSource.getMessage("api.erro.produto.nao.encontrado", null, Locale.getDefault())  );//
-		}	
+		}
 	}
-	@PreAuthorize("hasRole('Produto_Admin_Read')")
+
+	/**
+	 * Busca todos os produtos no banco cuja propriedade ativo está marcada como true
+	 * @return todos os produtos ativos
+	 */
 	@Override
 	public CollectionModel<ProdutoData> buscarTodos() {
 		return produtoAssembler.toCollectionModel(produtoRepositorio.findAll());
 	}
-	
+
+	/**
+	 * Retorna uma lista de produtos encapsulada em uma ProdutoRetornoPaginacao que inclui a
+	 * pagina atual, o total de itens e o total de páginas.
+	 * @param page número da página
+	 * @param size quantidade de itens por página
+	 * @return ProdutoRetornoPaginacao
+	 */
+	@Cacheable(value="produtoPaginadoCache")
 	@Override
 	public ProdutoRetornoPaginacao buscarTodosAtivosPaginavel(int page, int size){
+		log.info("Método foi chamado - find by ativo");
 		Pageable paging = PageRequest.of(page, size);
-		
+
 		Page<Produto> pageProduto;
-		
+
 		pageProduto = produtoRepositorio.findByAtivo(true, paging);
-		
+
 		return ProdutoRetornoPaginacao.builder()
-				.produtos( produtoAssembler.toCollectionModel( pageProduto.getContent() ) )	
+				.produtos( produtoAssembler.toCollectionModel( pageProduto.getContent() ) )
 				.paginaAtual( pageProduto.getNumber() )
 				.totalItems( pageProduto.getNumberOfElements() )
 				.totalPaginas( pageProduto.getTotalPages() )
 				.build();
 	}
 
-	@PreAuthorize("hasRole('Produto_Admin_Write')")
+	/**
+	 * Insere um produto no banco de dados.
+	 * @param produto
+	 * @return
+	 */
 	@Override
 	public ProdutoData salvar(ProdutoForm produto) {
 		Produto persistir = Produto.builder()
 				.nome( produto.getNome() )
 				.descricao( produto.getDescricao() )
 				.preco( produto.getPreco() )
+				.tipo( produto.getTipo() )
+				.imageUrl( produto.getImageUrl() )
 				.ativo( produto.getAtivo() )
 				.build();
-			try {
-				persistir.setId( produtoRepositorio.save(persistir).getId() );
-				return produtoAssembler.toModel(persistir);
-			}catch(DuplicateKeyException dke) {
-				throw new BancoNaoModificadoException( messageSource.getMessage("api.erro.mongodb.chave.duplicada", null, Locale.getDefault()) );
-			}		
+		try {
+			persistir.setId( produtoRepositorio.save(persistir).getId() );
+			return produtoAssembler.toModel(persistir);
+		}catch(DuplicateKeyException dke) {
+			throw new BancoNaoModificadoException( messageSource.getMessage("api.erro.mongodb.chave.duplicada", null, Locale.getDefault()) );
+		}
 	}
-	@PreAuthorize("hasRole('Produto_Admin_Write')")
+
+	/**
+	 * Inativa um produto no banco de dados
+	 * @param id
+	 * @return retorna o produto atualizado
+	 */
 	@Override
 	public ProdutoData inativar(String id) {
 		Optional<Produto> produto = produtoRepositorio.findById(id);
 		if( produto.isPresent() ) {
-			produto.get().setAtivo(false); 
+			produto.get().setAtivo(false);
 			return produtoAssembler.toModel( produtoRepositorio.save( produto.get() ) );
 		}else {
 			throw new ProdutoNaoEncontradoException( messageSource.getMessage("api.erro.produto.nao.encontrado", null, Locale.getDefault()) );//
 		}
 	}
-	@PreAuthorize("hasRole('Produto_Admin_Write')")
+
+	/**
+	 * Altera um produto
+	 * @param produtoForm
+	 * @return produto alterado
+	 */
+	@CacheEvict(value = "produtoCache", key = "#produtoForm.id")
 	@Override
-	public ProdutoData alterar(ProdutoForm produto) {
-		if(produtoRepositorio.existsById(produto.getId())) {
-			Produto persistido = produtoRepositorio.findById( produto.getId() ).get();
-			persistido.setDescricao( produto.getDescricao() );
-			persistido.setPreco(produto.getPreco());
+	public ProdutoData alterar(ProdutoForm produtoForm) {
+		Optional<Produto> produto = produtoRepositorio.findById( produtoForm.getId() );
+		if(produto.isPresent()) {
+			Produto persistido = produto.get();
+			persistido.setDescricao( produtoForm.getDescricao() );
+			persistido.setPreco(produtoForm.getPreco());
 			return produtoAssembler.toModel( produtoRepositorio.save(persistido) );
 		}else {
 			throw new ProdutoNaoEncontradoException( messageSource.getMessage("api.erro.produto.nao.encontrado", null, Locale.getDefault()) );
