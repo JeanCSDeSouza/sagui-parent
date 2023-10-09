@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
@@ -51,6 +52,8 @@ public class SecurityConfiguration {
                                 .pathMatchers("/api/v3/api-docs/**").permitAll()
                                 .pathMatchers("/v3/api-docs/**").permitAll()
                                 .pathMatchers("/api/v3/api-docs/produtos").permitAll()
+                                .pathMatchers(HttpMethod.GET,"/api/produtos").permitAll()
+                                .pathMatchers(HttpMethod.GET,"/api/produtos/**").permitAll()
                         .anyExchange()
                         .authenticated()
                 )
