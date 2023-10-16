@@ -19,7 +19,7 @@ public interface ProdutoServico {
 
 	ProdutoData salvar(ProdutoForm produto);
 
-	ProdutoData inativar(String id);
+	ProdutoData toogleProdutoStatus(String id);
 
 	ProdutoData alterar(ProdutoForm produto);
 

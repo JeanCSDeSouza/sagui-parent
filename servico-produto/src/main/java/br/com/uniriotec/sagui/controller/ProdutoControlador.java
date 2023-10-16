@@ -25,16 +25,16 @@ import br.com.uniriotec.sagui.services.ProdutoRetornoPaginacao;
 public class ProdutoControlador {
 
 	private ProdutoServico produtoServico;
-	
-	
+
+
 	@Autowired
 	public ProdutoControlador(ProdutoServico produtoServico) {
 		super();
 		this.produtoServico = produtoServico;
 	}
-	
+
 	/**
-	 * Retorna todos os produtos, ativos e inativos. 
+	 * Retorna todos os produtos, ativos e inativos.
 	 * @return CollectionModel<ProdutoData> com todos os produtos diponíveis.
 	 */
 	@GetMapping("/admin")
@@ -42,7 +42,7 @@ public class ProdutoControlador {
 	public CollectionModel<ProdutoData> produtos() {
 		return produtoServico.buscarTodos();
 	}
-	
+
 	/**
 	 * Retorna os produtos ativos de forma paginada. Retorna todos os itens ativos caso não seja especificado a página e o tamanho.
 	 * @param page inteiro que determina a pagina que é pra ser retornada
@@ -57,7 +57,7 @@ public class ProdutoControlador {
 	/**
 	 * Busca um produto que tenha o identificador igual ao id passado. Caso não encontre um produto com a id que foi passada levanta uma exceção do tipo "ProdutoNaoEncontrado"
 	 * @param id identificador de produto
-	 * @return 
+	 * @return
 	 */
 	@GetMapping("/{id}")
 	@ResponseStatus(HttpStatus.OK)
@@ -78,20 +78,25 @@ public class ProdutoControlador {
 	 * Altera um produto que tenha o identificador passado. Caso não encontre o produto levanta um exceção do tipo "ProdutoNaoEncontrado".
 	 * Ou se o form tiver erros de validação levanta uma exceção do tipo "MethodArgumentNotValidException"
 	 * @param produto
-	 * @return 
+	 * @return
 	 */
 	@PutMapping
 	@ResponseStatus(HttpStatus.OK)
 	public ProdutoData alterarProduto(@RequestBody @Validated ProdutoForm produto){
 		return produtoServico.alterar(produto);
 	}
+
 	/**
-	 * Inativa um produto que tenha o identificador passado. Caso não encontre o produto levanta um exceção do tipo "ProdutoNaoEncontrado".
+	 * Alterna o status de um produto que tenha o identificador passado.
+	 * Caso não encontre o produto levanta uma exceção do tipo "ProdutoNaoEncontrado".
 	 * @param id
+	 * @return
 	 */
-	@PatchMapping("/{id}")
+	@PatchMapping("/toggle-status-produto/{id}")
 	@ResponseStatus(HttpStatus.OK)
-	public void inativarProduto(@PathVariable(value="id") String id) {
-		produtoServico.inativar(id);
+	public ProdutoData toogleStatusProduto(@PathVariable(value = "id") String id) {
+		return produtoServico.toogleProdutoStatus(id);
 	}
+
+
 }

@@ -4,6 +4,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import br.com.uniriotec.sagui.model.dto.ProdutoData;
+import br.com.uniriotec.sagui.model.dto.ProdutoMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -34,6 +35,8 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 		this.produtoAssembler = produtoAssembler;
 		this.messageSource = messageSource;
 	}
+	@Autowired
+	private ProdutoMapper produtoMapper;
 
 	/**
 	 * Busca um produto pelo seu ID
@@ -41,7 +44,7 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 	 * @return produto relacionado ao ID buscado
 	 * @exception ProdutoNaoEncontradoException caso o produto não seja encontrado
 	 */
-	@Cacheable(value="produtoCache", key="#id")
+//	@Cacheable(value="produtoCache", key="#id")
 	@Override
 	public ProdutoData buscarPorId(String id) {
 		log.info("Método foi chamado - get by id");
@@ -69,7 +72,7 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 	 * @param size quantidade de itens por página
 	 * @return ProdutoRetornoPaginacao
 	 */
-	@Cacheable(value="produtoPaginadoCache")
+//	@Cacheable(value="produtoPaginadoCache")
 	@Override
 	public ProdutoRetornoPaginacao buscarTodosAtivosPaginavel(int page, int size){
 		log.info("Método foi chamado - find by ativo");
@@ -111,20 +114,22 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 	}
 
 	/**
-	 * Inativa um produto no banco de dados
+	 * Alterna o status do Produto entre a ativo ou inativo
+	 *
 	 * @param id
-	 * @return retorna o produto atualizado
+	 * @return Produto com o status atualizado
 	 */
 	@Override
-	public ProdutoData inativar(String id) {
+	public ProdutoData toogleProdutoStatus(String id) {
 		Optional<Produto> produto = produtoRepositorio.findById(id);
 		if( produto.isPresent() ) {
-			produto.get().setAtivo(false); 
+			produto.get().setAtivo(!produto.get().getAtivo());
 			return produtoAssembler.toModel( produtoRepositorio.save( produto.get() ) );
 		}else {
 			throw new ProdutoNaoEncontradoException( messageSource.getMessage("api.erro.produto.nao.encontrado", null, Locale.getDefault()) );//
 		}
 	}
+
 
 	/**
 	 * Altera um produto
@@ -136,10 +141,8 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 	public ProdutoData alterar(ProdutoForm produtoForm) {
 		Optional<Produto> produto = produtoRepositorio.findById( produtoForm.getId() );
 		if(produto.isPresent()) {
-			Produto persistido = produto.get();
-			persistido.setDescricao( produtoForm.getDescricao() );
-			persistido.setPreco(produtoForm.getPreco());
-			return produtoAssembler.toModel( produtoRepositorio.save(persistido) );
+			Produto produtoAtualizado = produtoMapper.updateProduto(produtoForm, produto.get());
+			return produtoAssembler.toModel( produtoRepositorio.save(produtoAtualizado) );
 		}else {
 			throw new ProdutoNaoEncontradoException( messageSource.getMessage("api.erro.produto.nao.encontrado", null, Locale.getDefault()) );
 		}
