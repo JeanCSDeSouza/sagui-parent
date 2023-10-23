@@ -19,7 +19,10 @@ public interface ProdutoServico {
 
 	ProdutoData salvar(ProdutoForm produto);
 
+	@Deprecated
 	ProdutoData inativar(String id);
+
+	ProdutoData toogleStatus(String id);
 
 	ProdutoData alterar(ProdutoForm produto);
 

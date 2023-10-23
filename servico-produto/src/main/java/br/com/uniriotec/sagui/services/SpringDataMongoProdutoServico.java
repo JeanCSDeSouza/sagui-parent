@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.context.MessageSource;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
@@ -25,9 +26,9 @@ import br.com.uniriotec.sagui.repository.ProdutoRepositorio;
 @Slf4j
 public class SpringDataMongoProdutoServico implements ProdutoServico {
 
-	private ProdutoRepositorio produtoRepositorio;
-	private ProdutoRepresentationAssembler produtoAssembler;
-	private MessageSource messageSource;
+	private final ProdutoRepositorio produtoRepositorio;
+	private final ProdutoRepresentationAssembler produtoAssembler;
+	private final MessageSource messageSource;
 	@Autowired
 	public SpringDataMongoProdutoServico(ProdutoRepositorio produtoRepositorio, ProdutoRepresentationAssembler produtoAssembler, MessageSource messageSource) {
 		this.produtoRepositorio = produtoRepositorio;
@@ -89,9 +90,10 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 
 	/**
 	 * Insere um produto no banco de dados.
-	 * @param produto
-	 * @return
+	 * @param produto que será salvo no banco
+	 * @return Retorna a representação do produto com sua ID
 	 */
+	@CacheEvict(value="produtoPaginadoCache", allEntries = true)
 	@Override
 	public ProdutoData salvar(ProdutoForm produto) {
 		Produto persistir = Produto.builder()
@@ -112,10 +114,11 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 
 	/**
 	 * Inativa um produto no banco de dados
-	 * @param id
+	 * @param id do produto que será alterado
 	 * @return retorna o produto atualizado
 	 */
 	@Override
+	@Deprecated
 	public ProdutoData inativar(String id) {
 		Optional<Produto> produto = produtoRepositorio.findById(id);
 		if( produto.isPresent() ) {
@@ -127,18 +130,46 @@ public class SpringDataMongoProdutoServico implements ProdutoServico {
 	}
 
 	/**
+	 * Altera o status de um produto pela sua ID ativando ou inativando sua visualiação.
+	 * @param id identificador do produto que deve ser alterado
+	 * @return Retorna a representação completa do produto que foi alterado.
+	 */
+	@Caching(evict = {
+			@CacheEvict(value = "produtoCache", key = "#id"),
+			@CacheEvict(value="produtoPaginadoCache", allEntries = true)
+	})
+	@Override
+	public ProdutoData toogleStatus(String id) {
+		Optional<Produto> produto = produtoRepositorio.findById(id);
+		if( produto.isPresent() ) {
+			produto.get().setAtivo( !produto.get().getAtivo() );
+			return produtoAssembler.toModel( produtoRepositorio.save( produto.get() ) );
+		}else {
+			throw new ProdutoNaoEncontradoException( messageSource.getMessage("api.erro.produto.nao.encontrado", null, Locale.getDefault()) );//
+		}
+	}
+
+	/**
 	 * Altera um produto
-	 * @param produtoForm
+	 * @param produtoForm representação do produto para ser alterado
 	 * @return produto alterado
 	 */
-	@CacheEvict(value = "produtoCache", key = "#produtoForm.id")
+
+	@Caching(evict = {
+			@CacheEvict(value = "produtoCache", key = "#produtoForm.id"),
+			@CacheEvict(value="produtoPaginadoCache", allEntries = true)
+	})
 	@Override
 	public ProdutoData alterar(ProdutoForm produtoForm) {
 		Optional<Produto> produto = produtoRepositorio.findById( produtoForm.getId() );
 		if(produto.isPresent()) {
 			Produto persistido = produto.get();
+			persistido.setNome(produtoForm.getNome() );
 			persistido.setDescricao( produtoForm.getDescricao() );
 			persistido.setPreco(produtoForm.getPreco());
+			persistido.setTipo( produtoForm.getTipo());
+			persistido.setImageUrl(produtoForm.getImageUrl() );
+			persistido.setAtivo( produtoForm.getAtivo() );
 			return produtoAssembler.toModel( produtoRepositorio.save(persistido) );
 		}else {
 			throw new ProdutoNaoEncontradoException( messageSource.getMessage("api.erro.produto.nao.encontrado", null, Locale.getDefault()) );

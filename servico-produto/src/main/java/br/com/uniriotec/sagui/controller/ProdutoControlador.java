@@ -92,6 +92,6 @@ public class ProdutoControlador {
 	@PatchMapping("/{id}")
 	@ResponseStatus(HttpStatus.OK)
 	public void inativarProduto(@PathVariable(value="id") String id) {
-		produtoServico.inativar(id);
+		produtoServico.toogleStatus(id);
 	}
 }
